@@ -1,0 +1,2049 @@
+<!-- ... existing code ... -->
+  <title>Daybook — Minimalist Tasks &amp; Journal</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Lora -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Lora', 'Georgia', 'serif'],
+          },
+          colors: {
+            coral: {
+              50: '#FFF6F6',
+              100: '#FFEBEB',
+              200: '#FFD6D7',
+              400: '#FF7A7E',
+              500: '#FF5A5F',
+              600: '#E8484D',
+            },
+            neutral: {
+              25: '#FCFCFC',
+              50: '#FAFAFA',
+              100: '#F4F4F5',
+              200: '#EAEAEA',
+              300: '#DCDCDC',
+              400: '#A1A1AA',
+              500: '#71717A',
+              700: '#3F3F46',
+              900: '#18181B',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Minimalist pure white & coral red theme */
+    body {
+      background-color: #FAFAFA;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* Clean minimalist ruled notepad with delicate coral margin */
+    .notepad-lines {
+      background-color: #FFFFFF;
+      background-image:
+        linear-gradient(to right, transparent 34px, rgba(255, 90, 95, 0.24) 34px, rgba(255, 90, 95, 0.24) 35px, transparent 35px),
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0px,
+          transparent 31px,
+          rgba(234, 234, 234, 0.7) 31px,
+          rgba(234, 234, 234, 0.7) 32px
+        );
+      background-size: 100% 32px;
+      background-position: 0 6px;
+    }
+
+    /* Hide scrollbars cleanly on horizontal date strip */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Subtle checkbox bounce */
+    @keyframes popCheck {
+      0% { transform: scale(0.88); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .animate-check {
+      animation: popCheck 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Smooth view fade */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .view-enter {
+      animation: fadeUp 0.18s ease-out forwards;
+    }
+
+    /* Safe area bottom padding for modern phones */
+    .pb-safe {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+  </style>
+</head>
+<body class="font-sans text-neutral-900 antialiased flex justify-center min-h-screen">
+
+  <!-- Minimalist Mobile App Shell -->
+  <div id="app-shell" class="w-full max-w-md bg-white min-h-screen flex flex-col relative overflow-x-hidden sm:border-x sm:border-neutral-200">
+
+    <!-- Toast Notification Pill -->
+    <div id="toast-banner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2 max-w-[90vw]">
+      <div class="bg-neutral-900 text-white text-xs font-medium px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
+        <span id="toast-dot" class="w-1.5 h-1.5 rounded-full bg-coral-500"></span>
+        <span id="toast-text">Saved</span>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         5-DAY BACKUP REMINDER BANNER (Shown automatically when >= 5 days)
+    ====================================================================== -->
+    <div id="backup-reminder-banner" class="hidden bg-coral-50 border-b border-coral-200/80 px-5 py-3 flex items-center justify-between gap-3 z-30">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="w-2 h-2 rounded-full bg-coral-500 shrink-0 animate-pulse"></span>
+        <p id="backup-reminder-text" class="text-xs font-medium text-neutral-800 leading-snug">
+          It's been 5 days since your last backup.
+        </p>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onclick="exportBackupJSON()"
+          class="text-xs font-semibold bg-coral-500 hover:bg-coral-600 text-white px-3 py-1.5 rounded-lg active:scale-95 transition"
+        >
+          Export Now
+        </button>
+        <button
+          type="button"
+          onclick="snoozeBackupReminder()"
+          class="text-xs font-medium text-neutral-500 hover:text-neutral-800 px-2 py-1.5 rounded-lg transition"
+        >
+          Later
+        </button>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         VIEW 1: TASKS (MAIN TAB)
+    ====================================================================== -->
+    <section id="view-tasks" class="flex-1 flex flex-col pb-24 view-enter bg-white">
+      <!-- Minimalist Header -->
+      <header class="px-6 pt-7 pb-5 bg-white/95 backdrop-blur-xs sticky top-0 z-20 border-b border-neutral-100">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <p id="tasks-date-label" class="text-[11px] font-semibold uppercase tracking-widest text-coral-500">Today</p>
+            <h1 class="text-2xl font-bold tracking-tight text-neutral-900 mt-0.5">Tasks</h1>
+          </div>
+          <!-- Prominent Backup Quick-Action & Data Modal Trigger -->
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              onclick="exportBackupJSON()"
+              title="Export JSON Backup"
+              class="inline-flex items-center gap-1.5 text-xs font-semibold text-coral-600 bg-coral-50 hover:bg-coral-100 border border-coral-200/80 px-2.5 py-1.5 rounded-xl active:scale-95 transition"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              <span>Backup</span>
+            </button>
+            <button
+              type="button"
+              onclick="openBackupModal()"
+              aria-label="Backup and Data Settings"
+              title="Backup & Import Data"
+              class="p-2 rounded-xl border border-neutral-200 text-neutral-500 hover:text-coral-500 hover:border-coral-300 hover:bg-coral-50/50 active:scale-95 transition relative"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
+              <span id="header-backup-dot" class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-coral-500"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Ultra-Clean Minimalist Progress Bar -->
+        <div class="mt-5">
+          <div class="flex items-center justify-between text-xs mb-1.5">
+            <span id="progress-summary-text" class="text-neutral-500">0 of 0 done</span>
+            <span id="progress-percent-text" class="font-semibold text-coral-500">0%</span>
+          </div>
+          <div class="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+            <div id="progress-bar-fill" class="h-full bg-coral-500 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Minimalist Add Task Input -->
+      <div class="px-6 pt-5 pb-2">
+        <form id="add-task-form" class="flex items-center gap-2 bg-white rounded-2xl p-1.5 pl-4 border border-neutral-200 focus-within:border-coral-500 transition">
+          <input
+            id="new-task-input"
+            type="text"
+            placeholder="New task..."
+            autocomplete="off"
+            class="flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none py-2"
+          />
+          <button
+            type="submit"
+            class="bg-coral-500 hover:bg-coral-600 active:scale-95 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1 shrink-0"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>Add</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Task Lists -->
+      <main class="px-6 pt-4 space-y-7 flex-1">
+        <!-- Active / Unchecked Tasks -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">To Do · <span id="active-count">0</span></h2>
+            <span class="text-[11px] text-neutral-400">Persists until checked</span>
+          </div>
+          <ul id="active-tasks-list" class="space-y-2"></ul>
+
+          <!-- Minimalist Empty State -->
+          <div id="active-tasks-empty" class="hidden text-center py-12 px-4 rounded-2xl border border-dashed border-neutral-200 mt-2">
+            <p class="text-sm font-medium text-neutral-700">Nothing pending</p>
+            <p class="text-xs text-neutral-400 mt-1">Tasks you add stay here until checked off.</p>
+          </div>
+        </div>
+
+        <!-- Collapsible Completed Tasks Section -->
+        <div id="completed-section" class="hidden pt-3 border-t border-neutral-100">
+          <div class="flex items-center justify-between mb-2.5">
+            <button
+              type="button"
+              onclick="toggleCompletedCollapse()"
+              class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-neutral-400 hover:text-neutral-700 transition"
+            >
+              <svg id="completed-chevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+              <span>Completed (<span id="completed-count">0</span>)</span>
+            </button>
+            <button onclick="clearCompletedTasks()" class="text-xs font-medium text-coral-500 hover:text-coral-600 py-1 px-2 rounded-lg active:bg-coral-50 transition">
+              Clear
+            </button>
+          </div>
+          <ul id="completed-tasks-list" class="space-y-1.5"></ul>
+        </div>
+      </main>
+    </section>
+
+    <!-- =====================================================================
+         VIEW 2: REPEATING TASKS TAB
+    ====================================================================== -->
+    <section id="view-repeating" class="hidden flex-1 flex-col pb-24 view-enter bg-white">
+      <header class="px-6 pt-7 pb-5 bg-white/95 backdrop-blur-xs sticky top-0 z-20 border-b border-neutral-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-widest text-coral-500">Schedules</p>
+            <h1 class="text-2xl font-bold tracking-tight text-neutral-900 mt-0.5">Repeating</h1>
+          </div>
+          <button
+            onclick="toggleRepeatCreator(true)"
+            class="bg-coral-500 hover:bg-coral-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>New</span>
+          </button>
+        </div>
+        <p class="text-xs text-neutral-500 mt-2.5 leading-relaxed">
+          Items reappear in <span class="font-medium text-neutral-800">Tasks</span> on schedule and stay until checked off.
+        </p>
+      </header>
+
+      <!-- Minimalist New Repeating Task Card -->
+      <div id="repeat-creator-card" class="hidden px-6 pt-5">
+        <form id="add-repeat-form" class="bg-white rounded-2xl p-4 border border-neutral-200 space-y-4">
+          <div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+            <h2 class="text-sm font-semibold text-neutral-900">New Repeating Item</h2>
+            <button type="button" onclick="toggleRepeatCreator(false)" class="text-neutral-400 hover:text-neutral-700 p-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-neutral-600 mb-1.5">Task Title</label>
+            <input
+              id="repeat-title-input"
+              type="text"
+              required
+              placeholder="e.g., Water plants, Weekly review..."
+              class="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-sm text-neutral-900 focus:outline-none focus:border-coral-500 focus:bg-white transition"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-neutral-600 mb-1.5">Frequency</label>
+            <div class="grid grid-cols-2 gap-2" id="freq-type-buttons">
+              <button type="button" data-freq="daily" class="freq-btn py-2 px-3 rounded-xl text-xs font-medium border text-center transition">
+                Every Day
+              </button>
+              <button type="button" data-freq="interval" class="freq-btn py-2 px-3 rounded-xl text-xs font-medium border text-center transition">
+                Every X Days
+              </button>
+              <button type="button" data-freq="weekly" class="freq-btn py-2 px-3 rounded-xl text-xs font-medium border text-center transition">
+                Weekly
+              </button>
+              <button type="button" data-freq="monthly" class="freq-btn py-2 px-3 rounded-xl text-xs font-medium border text-center transition">
+                Monthly
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Sub-options: Every X Days -->
+          <div id="opt-interval" class="hidden bg-neutral-50 p-3 rounded-xl border border-neutral-200/80">
+            <label class="flex items-center justify-between text-xs text-neutral-700">
+              <span>Repeat every</span>
+              <div class="flex items-center gap-2">
+                <input id="repeat-interval-days" type="number" min="2" max="365" value="3" class="w-16 bg-white border border-neutral-200 rounded-lg px-2 py-1 text-center font-semibold text-neutral-900 focus:outline-none focus:border-coral-500" />
+                <span>days</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Dynamic Sub-options: Weekly Days -->
+          <div id="opt-weekly" class="hidden bg-neutral-50 p-3 rounded-xl border border-neutral-200/80">
+            <span class="block text-xs text-neutral-600 mb-2">Select days:</span>
+            <div class="grid grid-cols-7 gap-1" id="weekday-pills">
+              <button type="button" data-day="0" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">S</button>
+              <button type="button" data-day="1" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">M</button>
+              <button type="button" data-day="2" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">T</button>
+              <button type="button" data-day="3" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">W</button>
+              <button type="button" data-day="4" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">T</button>
+              <button type="button" data-day="5" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">F</button>
+              <button type="button" data-day="6" class="day-pill py-1.5 rounded-lg text-xs font-semibold border">S</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Sub-options: Monthly Day -->
+          <div id="opt-monthly" class="hidden bg-neutral-50 p-3 rounded-xl border border-neutral-200/80">
+            <label class="flex items-center justify-between text-xs text-neutral-700">
+              <span>Day of month</span>
+              <div class="flex items-center gap-2">
+                <span>Day</span>
+                <input id="repeat-monthly-day" type="number" min="1" max="31" value="1" class="w-16 bg-white border border-neutral-200 rounded-lg px-2 py-1 text-center font-semibold text-neutral-900 focus:outline-none focus:border-coral-500" />
+              </div>
+            </label>
+          </div>
+
+          <div class="pt-0.5">
+            <label class="flex items-center gap-2 text-xs text-neutral-600 cursor-pointer">
+              <input id="repeat-start-today" type="checkbox" checked class="w-4 h-4 rounded accent-coral-500 border-neutral-300" />
+              <span>Add to Tasks right now</span>
+            </label>
+          </div>
+
+          <div class="flex gap-2 pt-1">
+            <button type="button" onclick="toggleRepeatCreator(false)" class="flex-1 py-2.5 rounded-xl text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200/70 transition">
+              Cancel
+            </button>
+            <button type="submit" class="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white bg-coral-500 hover:bg-coral-600 transition">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Repeating Rules List -->
+      <main class="px-6 pt-5 space-y-2.5 flex-1">
+        <ul id="repeating-rules-list" class="space-y-2.5"></ul>
+
+        <!-- Empty State -->
+        <div id="repeating-empty" class="hidden text-center py-12 px-4 rounded-2xl border border-dashed border-neutral-200">
+          <p class="text-sm font-medium text-neutral-700">No repeating items</p>
+          <p class="text-xs text-neutral-400 mt-1">Tap "+ New" to create recurring routines.</p>
+        </div>
+      </main>
+    </section>
+
+    <!-- =====================================================================
+         VIEW 3: DAILY JOURNAL / NOTEPAD TAB
+    ====================================================================== -->
+    <section id="view-journal" class="hidden flex-1 flex-col pb-24 view-enter bg-white">
+      <!-- Minimalist Journal Header -->
+      <header class="px-6 pt-6 pb-3.5 bg-white border-b border-neutral-100 sticky top-0 z-20">
+        <div class="flex items-center justify-between mb-3.5">
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-xl font-bold tracking-tight text-neutral-900">Journal</h1>
+            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-coral-50 text-coral-600" id="journal-entry-count-badge">0 notes</span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button
+              id="journal-today-btn"
+              onclick="selectJournalDate(getTodayKey())"
+              class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-coral-50 text-coral-600 hover:bg-coral-100 active:scale-95 transition"
+            >
+              Today
+            </button>
+            <button
+              onclick="toggleHistoryDrawer(true)"
+              aria-label="Past journal entries"
+              class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-neutral-200 text-neutral-700 hover:border-coral-400 hover:text-coral-600 active:scale-95 transition"
+            >
+              <svg class="w-3.5 h-3.5 text-coral-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              <span>Archive</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Prev / Current Date / Next Controls -->
+        <div class="flex items-center justify-between bg-neutral-50 rounded-xl p-1 border border-neutral-200/80">
+          <button
+            onclick="shiftJournalDate(-1)"
+            aria-label="Previous day"
+            class="p-1.5 rounded-lg text-neutral-600 hover:bg-white hover:text-coral-500 active:scale-95 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+
+          <div class="text-center">
+            <div id="journal-selected-date-title" class="font-medium text-sm text-neutral-900">Thursday, Nov 19</div>
+            <div id="journal-selected-date-sub" class="text-[10px] text-neutral-400">2026</div>
+          </div>
+
+          <button
+            id="journal-next-day-btn"
+            onclick="shiftJournalDate(1)"
+            aria-label="Next day"
+            class="p-1.5 rounded-lg text-neutral-600 hover:bg-white hover:text-coral-500 active:scale-95 transition disabled:opacity-25 disabled:pointer-events-none"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Horizontal 14-Day Quick-Scroll Strip -->
+        <div id="journal-date-strip" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-3 pb-0.5"></div>
+      </header>
+
+      <!-- Minimalist White Ruled Notepad Sheet -->
+      <main class="flex-1 px-4 pt-4 pb-4 flex flex-col">
+        <div class="notepad-lines flex-1 rounded-2xl border border-neutral-200 overflow-hidden flex flex-col relative">
+          <!-- Sheet Header -->
+          <div class="pl-11 pr-4 pt-4 pb-2 flex items-baseline justify-between">
+            <span id="sheet-handwritten-header" class="text-xs font-semibold uppercase tracking-widest text-coral-500">Today's Page</span>
+            <span id="sheet-status-label" class="text-[11px] text-neutral-400"></span>
+          </div>
+
+          <!-- Minimalist Note Composer -->
+          <form id="add-journal-form" class="pl-11 pr-4 pb-4">
+            <div class="bg-white/95 rounded-xl border border-neutral-200 p-2.5 focus-within:border-coral-500 transition">
+              <textarea
+                id="journal-note-input"
+                rows="2"
+                placeholder="Write a thought or note..."
+                class="w-full bg-transparent font-serif text-sm text-neutral-900 placeholder-neutral-400 resize-none focus:outline-none leading-relaxed"
+              ></textarea>
+              <div class="flex items-center justify-between pt-2 mt-1 border-t border-neutral-100">
+                <!-- Optional Subtle Tag Pills -->
+                <div class="flex items-center gap-1" id="journal-mood-selector">
+                  <button type="button" data-tag="" class="mood-btn text-[11px] px-2 py-0.5 rounded-md bg-coral-50 text-coral-600 font-medium">Note</button>
+                  <button type="button" data-tag="Thought" class="mood-btn text-[11px] px-2 py-0.5 rounded-md text-neutral-500 hover:bg-neutral-100">Thought</button>
+                  <button type="button" data-tag="Win" class="mood-btn text-[11px] px-2 py-0.5 rounded-md text-neutral-500 hover:bg-neutral-100">Win</button>
+                  <button type="button" data-tag="Grateful" class="mood-btn text-[11px] px-2 py-0.5 rounded-md text-neutral-500 hover:bg-neutral-100">Grateful</button>
+                </div>
+                <button
+                  type="submit"
+                  class="bg-coral-500 hover:bg-coral-600 active:scale-95 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition"
+                >
+                  Write
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <!-- Entries List (Dash-prefixed, no timestamps above) -->
+          <div id="journal-entries-container" class="pl-11 pr-4 pb-8 space-y-2 flex-1"></div>
+
+          <!-- Empty Page State -->
+          <div id="journal-empty-page" class="hidden pl-11 pr-6 py-10 text-left">
+            <p class="font-serif italic text-sm text-neutral-400 leading-relaxed">
+              — Blank page. Jot down a quick note above.
+            </p>
+          </div>
+        </div>
+      </main>
+    </section>
+
+    <!-- =====================================================================
+         BOTTOM NAVIGATION BAR (3 MINIMALIST TABS)
+    ====================================================================== -->
+    <nav aria-label="Primary Navigation" class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-neutral-100 z-30 pb-safe">
+      <div class="grid grid-cols-3 px-4 pt-1.5">
+        <!-- Tab 1: Tasks -->
+        <button
+          id="nav-btn-tasks"
+          onclick="switchTab('tasks')"
+          class="nav-tab flex flex-col items-center justify-center py-2 px-1 rounded-xl transition relative text-coral-500"
+        >
+          <div class="relative">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id="nav-tasks-badge" class="hidden absolute -top-1 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-coral-500 text-white text-[9px] font-bold flex items-center justify-center">0</span>
+          </div>
+          <span class="text-[11px] font-medium mt-1">Tasks</span>
+        </button>
+
+        <!-- Tab 2: Repeating -->
+        <button
+          id="nav-btn-repeating"
+          onclick="switchTab('repeating')"
+          class="nav-tab flex flex-col items-center justify-center py-2 px-1 rounded-xl transition text-neutral-400 hover:text-neutral-700"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span class="text-[11px] font-medium mt-1">Repeating</span>
+        </button>
+
+        <!-- Tab 3: Journal -->
+        <button
+          id="nav-btn-journal"
+          onclick="switchTab('journal')"
+          class="nav-tab flex flex-col items-center justify-center py-2 px-1 rounded-xl transition text-neutral-400 hover:text-neutral-700"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+          <span class="text-[11px] font-medium mt-1">Journal</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- =====================================================================
+         JOURNAL ARCHIVE DRAWER
+    ====================================================================== -->
+    <div id="history-drawer-backdrop" class="hidden fixed inset-0 bg-neutral-900/30 backdrop-blur-xs z-40 flex items-end justify-center">
+      <div class="w-full max-w-md bg-white rounded-t-3xl max-h-[80vh] flex flex-col border-t border-neutral-200 view-enter">
+        <div class="px-6 pt-5 pb-3.5 border-b border-neutral-100 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-neutral-900">Past Pages</h2>
+            <p class="text-xs text-neutral-400">Select a day to view its notes</p>
+          </div>
+          <button onclick="toggleHistoryDrawer(false)" class="p-2 rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Date Picker Jump Input -->
+        <div class="px-6 py-3 bg-neutral-50 border-b border-neutral-100 flex items-center justify-between gap-3">
+          <label for="jump-date-picker" class="text-xs font-medium text-neutral-600">Jump to date:</label>
+          <input
+            id="jump-date-picker"
+            type="date"
+            onchange="jumpToDateFromPicker(this.value)"
+            class="bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-coral-500"
+          />
+        </div>
+
+        <!-- List of Days with Entries -->
+        <div id="archive-days-list" class="p-6 overflow-y-auto space-y-2.5 flex-1"></div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         BACKUP & DATA MANAGEMENT MODAL (5-Day Reminder + Export / Import)
+    ====================================================================== -->
+    <div id="backup-modal-backdrop" class="hidden fixed inset-0 bg-neutral-900/30 backdrop-blur-xs z-40 flex items-end sm:items-center justify-center p-0 sm:p-5">
+      <div class="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 border-t sm:border border-neutral-200 space-y-5 view-enter max-h-[88vh] overflow-y-auto">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-neutral-900">Backup &amp; Data</h3>
+            <p id="last-backup-status-label" class="text-xs text-neutral-500 mt-0.5">Last backup: Never exported</p>
+            <p id="backup-cycle-status-label" class="text-[11px] font-medium text-coral-500 mt-0.5">5-day reminder check active</p>
+          </div>
+          <button type="button" onclick="closeBackupModal()" class="p-2 rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Live Library Summary Counts -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="rounded-2xl border border-neutral-200/90 bg-neutral-50/70 p-3 text-center">
+            <div id="backup-stat-tasks" class="text-base font-bold text-neutral-900">0</div>
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mt-0.5">Tasks</div>
+          </div>
+          <div class="rounded-2xl border border-neutral-200/90 bg-neutral-50/70 p-3 text-center">
+            <div id="backup-stat-repeating" class="text-base font-bold text-neutral-900">0</div>
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mt-0.5">Repeating</div>
+          </div>
+          <div class="rounded-2xl border border-neutral-200/90 bg-neutral-50/70 p-3 text-center">
+            <div id="backup-stat-journal" class="text-base font-bold text-neutral-900">0</div>
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mt-0.5">Notes</div>
+          </div>
+        </div>
+
+        <!-- Export Backup Card -->
+        <div class="p-4 rounded-2xl bg-coral-50/70 border border-coral-100 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-coral-600">Export Backup</h4>
+              <p class="text-xs text-neutral-600 mt-1 leading-relaxed">
+                Download a JSON snapshot of your tasks, repeating rules, and journal pages. Automatically resets your 5-day reminder.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick="exportBackupJSON()"
+            class="w-full py-2.5 px-4 rounded-xl bg-coral-500 hover:bg-coral-600 active:scale-[0.99] text-white text-xs font-semibold flex items-center justify-center gap-2 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            <span>Download Backup (.json)</span>
+          </button>
+        </div>
+
+        <!-- Import Backup Card (File Picker + Drag & Drop) -->
+        <div class="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-neutral-700">Import Backup</h4>
+            <p class="text-xs text-neutral-500 mt-1 leading-relaxed">
+              Select or drop a <code class="text-neutral-700 font-mono">.json</code> backup file to merge with existing items or replace everything.
+            </p>
+          </div>
+
+          <input
+            id="backup-file-input"
+            type="file"
+            accept=".json,application/json"
+            onchange="handleBackupFileSelected(event)"
+            class="hidden"
+          />
+
+          <div
+            id="backup-dropzone"
+            onclick="document.getElementById('backup-file-input').click()"
+            class="border border-dashed border-neutral-300 hover:border-coral-400 rounded-xl p-3.5 text-center cursor-pointer transition bg-neutral-25"
+          >
+            <p class="text-xs font-semibold text-neutral-800">Tap to choose or drop a .json backup</p>
+            <p id="backup-import-feedback" class="text-[11px] text-neutral-400 mt-1">Supports Daybook JSON backups</p>
+          </div>
+
+          <!-- Import Preview & Confirmation Box (Shown when valid JSON selected) -->
+          <div id="import-preview-box" class="hidden pt-2 border-t border-neutral-100 space-y-3">
+            <div class="bg-neutral-50 rounded-xl p-3 border border-neutral-200/80">
+              <p id="import-file-name" class="text-xs font-semibold text-neutral-900 truncate">daybook-backup.json</p>
+              <p id="import-summary-counts" class="text-[11px] text-neutral-500 mt-1">0 tasks · 0 repeating · 0 journal days</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onclick="applyImportedBackup('merge')"
+                class="py-2 px-3 rounded-xl border border-coral-200 bg-coral-50 text-coral-600 hover:bg-coral-100 text-xs font-semibold transition"
+              >
+                Merge with Current
+              </button>
+              <button
+                type="button"
+                onclick="applyImportedBackup('replace')"
+                class="py-2 px-3 rounded-xl bg-coral-500 hover:bg-coral-600 text-white text-xs font-semibold transition"
+              >
+                Replace All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtle Reset / Clear Links -->
+        <div class="pt-2 border-t border-neutral-100 flex items-center justify-between text-xs">
+          <button type="button" onclick="loadSampleData(true)" class="text-neutral-500 hover:text-neutral-800 py-1 transition">
+            Load sample data
+          </button>
+          <button type="button" onclick="clearAllData()" class="text-coral-500 hover:text-coral-600 font-medium py-1 transition">
+            Clear all data
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =====================================================================
+       APPLICATION JAVASCRIPT
+  ====================================================================== -->
+  <script>
+    /**
+     * Storage Keys & App State
+     */
+    const STORAGE_KEYS = {
+      TASKS: 'daybook_tasks_v1',
+      REPEATING: 'daybook_repeating_v1',
+      JOURNAL: 'daybook_journal_v1',
+      INITIALIZED: 'daybook_initialized_v1',
+      BACKUP_META: 'daybook_backup_meta_v1',
+      LAST_BACKUP_AT: 'daybook_last_backup_at'
+    };
+
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+
+    let state = {
+      activeTab: 'tasks',
+      tasks: [],
+      repeatingRules: [],
+      journalEntries: {}, // 'YYYY-MM-DD' -> Array of { id, time, text, tag }
+      selectedJournalDate: '',
+      selectedFreqType: 'daily',
+      selectedWeekdays: [1],
+      selectedJournalTag: '',
+      completedCollapsed: false,
+      backupMeta: {
+        lastBackupTimestamp: null,
+        firstLaunchTimestamp: null,
+        snoozedUntilTimestamp: null
+      },
+      pendingImportData: null
+    };
+
+    /**
+     * Date Utility Helpers (Local timezone safe YYYY-MM-DD)
+     */
+    function formatDateKey(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function parseDateKey(dateKey) {
+      const [y, m, d] = dateKey.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function getTodayKey() {
+      return formatDateKey(new Date());
+    }
+
+    function addDaysToKey(dateKey, deltaDays) {
+      const dt = parseDateKey(dateKey);
+      dt.setDate(dt.getDate() + deltaDays);
+      return formatDateKey(dt);
+    }
+
+    function daysBetweenKeys(startKey, endKey) {
+      const start = parseDateKey(startKey);
+      const end = parseDateKey(endKey);
+      const msPerDay = 1000 * 60 * 60 * 24;
+      return Math.round((end - start) / msPerDay);
+    }
+
+    function formatFriendlyDate(dateKey) {
+      const todayKey = getTodayKey();
+      const yesterdayKey = addDaysToKey(todayKey, -1);
+      if (dateKey === todayKey) return 'Today';
+      if (dateKey === yesterdayKey) return 'Yesterday';
+
+      const dt = parseDateKey(dateKey);
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    /**
+     * Persistence Layer
+     */
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(state.tasks));
+        localStorage.setItem(STORAGE_KEYS.REPEATING, JSON.stringify(state.repeatingRules));
+        localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(state.journalEntries));
+        localStorage.setItem(STORAGE_KEYS.BACKUP_META, JSON.stringify(state.backupMeta));
+        localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+      } catch (err) {
+        console.error('Failed to save to localStorage:', err);
+      }
+    }
+
+    function loadState() {
+      // Load or initialize backup metadata (including dedicated daybook_last_backup_at key)
+      try {
+        const savedMeta = JSON.parse(localStorage.getItem(STORAGE_KEYS.BACKUP_META) || 'null');
+        const dedicatedLastBackup = Number(localStorage.getItem(STORAGE_KEYS.LAST_BACKUP_AT) || '0') || null;
+        if (savedMeta && typeof savedMeta === 'object') {
+          state.backupMeta = {
+            lastBackupTimestamp: dedicatedLastBackup || savedMeta.lastBackupTimestamp || null,
+            firstLaunchTimestamp: savedMeta.firstLaunchTimestamp || Date.now(),
+            snoozedUntilTimestamp: savedMeta.snoozedUntilTimestamp || null
+          };
+        } else {
+          state.backupMeta.lastBackupTimestamp = dedicatedLastBackup;
+          state.backupMeta.firstLaunchTimestamp = Date.now();
+        }
+      } catch (e) {
+        state.backupMeta.firstLaunchTimestamp = Date.now();
+      }
+
+      const isInitialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
+      if (!isInitialized) {
+        loadSampleData(false);
+        return;
+      }
+
+      try {
+        state.tasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS) || '[]');
+        state.repeatingRules = JSON.parse(localStorage.getItem(STORAGE_KEYS.REPEATING) || '[]');
+        state.journalEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '{}');
+      } catch (err) {
+        console.error('Error reading localStorage:', err);
+        state.tasks = [];
+        state.repeatingRules = [];
+        state.journalEntries = {};
+      }
+    }
+
+    /**
+     * 5-Day Backup Reminder, Export & Import System
+     */
+    function hasAnyUserData() {
+      const hasNotes = Object.keys(state.journalEntries || {}).some(
+        k => Array.isArray(state.journalEntries[k]) && state.journalEntries[k].length > 0
+      );
+      return state.tasks.length > 0 || state.repeatingRules.length > 0 || hasNotes;
+    }
+
+    function checkBackupReminder() {
+      const now = Date.now();
+      const hasBackup = Boolean(state.backupMeta.lastBackupTimestamp);
+      const referenceTime = hasBackup
+        ? state.backupMeta.lastBackupTimestamp
+        : (state.backupMeta.firstLaunchTimestamp || now);
+      const elapsedMs = now - referenceTime;
+      const daysElapsed = Math.floor(elapsedMs / (24 * 60 * 60 * 1000));
+
+      // Show reminder if >= 5 days have passed since last backup (or since launch if never backed up and user has data)
+      const isDue = elapsedMs >= FIVE_DAYS_MS || (!hasBackup && hasAnyUserData() && daysElapsed >= 5);
+      const isSnoozed = state.backupMeta.snoozedUntilTimestamp && now < state.backupMeta.snoozedUntilTimestamp;
+
+      const bannerEl = document.getElementById('backup-reminder-banner');
+      const dotEl = document.getElementById('header-backup-dot');
+
+      if (isDue || !hasBackup) {
+        dotEl.classList.remove('hidden');
+      } else {
+        dotEl.classList.add('hidden');
+      }
+
+      if (isDue && !isSnoozed) {
+        const msg = hasBackup
+          ? `5-day reminder: It's been ${daysElapsed} day${daysElapsed === 1 ? '' : 's'} since your last backup.`
+          : `5-day reminder: Export a backup to save your tasks and journal notes.`;
+        document.getElementById('backup-reminder-text').textContent = msg;
+        bannerEl.classList.remove('hidden');
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+    }
+
+    function snoozeBackupReminder() {
+      // Snooze banner for 24 hours
+      state.backupMeta.snoozedUntilTimestamp = Date.now() + (24 * 60 * 60 * 1000);
+      saveState();
+      checkBackupReminder();
+      showToast('Reminder snoozed for 1 day');
+    }
+
+    function updateBackupStatusLabel() {
+      const label = document.getElementById('last-backup-status-label');
+      const cycleLabel = document.getElementById('backup-cycle-status-label');
+
+      // Update live counts inside modal
+      const totalNotes = Object.keys(state.journalEntries || {}).reduce((acc, k) => {
+        const list = state.journalEntries[k];
+        return acc + (Array.isArray(list) ? list.length : 0);
+      }, 0);
+      document.getElementById('backup-stat-tasks').textContent = state.tasks.length;
+      document.getElementById('backup-stat-repeating').textContent = state.repeatingRules.length;
+      document.getElementById('backup-stat-journal').textContent = totalNotes;
+
+      if (!state.backupMeta.lastBackupTimestamp) {
+        label.textContent = 'Last backup: Never exported';
+        cycleLabel.textContent = 'Export a backup to start your 5-day cycle';
+        return;
+      }
+
+      const lastTs = state.backupMeta.lastBackupTimestamp;
+      const dt = new Date(lastTs);
+      const formatted = dt.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      const daysAgo = Math.max(0, Math.floor((Date.now() - lastTs) / (24 * 60 * 60 * 1000)));
+      label.textContent = `Last backup: ${formatted} (${daysAgo === 0 ? 'today' : `${daysAgo}d ago`})`;
+
+      if (daysAgo >= 5) {
+        cycleLabel.textContent = '5-day backup reminder is due now';
+      } else {
+        const remaining = 5 - daysAgo;
+        cycleLabel.textContent = `Next 5-day reminder in ${remaining} day${remaining === 1 ? '' : 's'}`;
+      }
+    }
+
+    function exportBackupJSON() {
+      const todayKey = getTodayKey();
+      const payload = {
+        app: 'Daybook',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: {
+          tasks: state.tasks,
+          repeatingRules: state.repeatingRules,
+          journalEntries: state.journalEntries
+        }
+      };
+
+      try {
+        const jsonString = JSON.stringify(payload, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `daybook-backup-${todayKey}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Reset 5-day backup reminder timer & save daybook_last_backup_at
+        const exportedNow = Date.now();
+        state.backupMeta.lastBackupTimestamp = exportedNow;
+        state.backupMeta.snoozedUntilTimestamp = null;
+        localStorage.setItem(STORAGE_KEYS.LAST_BACKUP_AT, String(exportedNow));
+        saveState();
+        checkBackupReminder();
+        updateBackupStatusLabel();
+        showToast('Backup exported & timer reset');
+      } catch (err) {
+        console.error('Export failed:', err);
+        showToast('Could not export backup');
+      }
+    }
+
+    function processBackupFile(file) {
+      const feedbackEl = document.getElementById('backup-import-feedback');
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          // Support both wrapped { data: { tasks, ... } } and direct { tasks, ... } formats
+          const source = parsed && parsed.data ? parsed.data : parsed;
+
+          if (
+            !source ||
+            !Array.isArray(source.tasks) ||
+            !Array.isArray(source.repeatingRules) ||
+            typeof source.journalEntries !== 'object' ||
+            source.journalEntries === null
+          ) {
+            state.pendingImportData = null;
+            document.getElementById('import-preview-box').classList.add('hidden');
+            feedbackEl.textContent = 'Invalid backup structure. Please choose a valid Daybook JSON file.';
+            feedbackEl.className = 'text-[11px] font-medium text-coral-600 mt-1';
+            showToast('Invalid Daybook backup file');
+            return;
+          }
+
+          state.pendingImportData = {
+            tasks: source.tasks,
+            repeatingRules: source.repeatingRules,
+            journalEntries: source.journalEntries
+          };
+
+          const journalDaysCount = Object.keys(source.journalEntries).filter(
+            k => Array.isArray(source.journalEntries[k]) && source.journalEntries[k].length > 0
+          ).length;
+
+          feedbackEl.textContent = 'Backup file verified — choose Merge or Replace All below.';
+          feedbackEl.className = 'text-[11px] font-medium text-coral-600 mt-1';
+          document.getElementById('import-file-name').textContent = file.name;
+          document.getElementById('import-summary-counts').textContent =
+            `${source.tasks.length} tasks · ${source.repeatingRules.length} repeating · ${journalDaysCount} journal days`;
+          document.getElementById('import-preview-box').classList.remove('hidden');
+        } catch (err) {
+          console.error('Invalid JSON file:', err);
+          state.pendingImportData = null;
+          document.getElementById('import-preview-box').classList.add('hidden');
+          feedbackEl.textContent = 'Could not parse JSON file. Check file format and try again.';
+          feedbackEl.className = 'text-[11px] font-medium text-coral-600 mt-1';
+          showToast('Could not read JSON file');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function handleBackupFileSelected(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      processBackupFile(file);
+      event.target.value = '';
+    }
+
+    function applyImportedBackup(mode) {
+      if (!state.pendingImportData) return;
+      const incoming = state.pendingImportData;
+
+      if (mode === 'replace') {
+        state.tasks = incoming.tasks;
+        state.repeatingRules = incoming.repeatingRules;
+        state.journalEntries = incoming.journalEntries;
+      } else if (mode === 'merge') {
+        // Merge Tasks by ID
+        const existingTaskIds = new Set(state.tasks.map(t => t.id));
+        incoming.tasks.forEach(t => {
+          if (!existingTaskIds.has(t.id)) state.tasks.push(t);
+        });
+
+        // Merge Repeating Rules by ID
+        const existingRuleIds = new Set(state.repeatingRules.map(r => r.id));
+        incoming.repeatingRules.forEach(r => {
+          if (!existingRuleIds.has(r.id)) state.repeatingRules.push(r);
+        });
+
+        // Merge Journal Entries per date by Entry ID
+        Object.keys(incoming.journalEntries).forEach(dateKey => {
+          const incomingList = incoming.journalEntries[dateKey];
+          if (!Array.isArray(incomingList)) return;
+          if (!state.journalEntries[dateKey]) {
+            state.journalEntries[dateKey] = [...incomingList];
+          } else {
+            const existingNoteIds = new Set(state.journalEntries[dateKey].map(n => n.id));
+            incomingList.forEach(note => {
+              if (!existingNoteIds.has(note.id)) {
+                state.journalEntries[dateKey].push(note);
+              }
+            });
+          }
+        });
+      }
+
+      state.pendingImportData = null;
+      document.getElementById('import-preview-box').classList.add('hidden');
+      document.getElementById('backup-file-input').value = '';
+
+      saveState();
+      renderAll();
+      closeBackupModal();
+      showToast(mode === 'replace' ? 'Backup restored' : 'Backup merged');
+    }
+
+    /**
+     * Sample Initial Data (First Visit or Manual Restore)
+     */
+    function loadSampleData(showNotification = true) {
+      const today = getTodayKey();
+      const yesterday = addDaysToKey(today, -1);
+      const twoDaysAgo = addDaysToKey(today, -2);
+      const fourDaysAgo = addDaysToKey(today, -4);
+
+      state.repeatingRules = [
+        {
+          id: 'rep-1',
+          title: 'Drink a glass of water & stretch',
+          freqType: 'daily',
+          intervalDays: 1,
+          weekdays: [],
+          monthlyDay: 1,
+          enabled: true,
+          lastSpawnedDate: today,
+          createdAt: twoDaysAgo
+        },
+        {
+          id: 'rep-2',
+          title: 'Water indoor plants',
+          freqType: 'interval',
+          intervalDays: 3,
+          weekdays: [],
+          monthlyDay: 1,
+          enabled: true,
+          lastSpawnedDate: yesterday,
+          createdAt: fourDaysAgo
+        },
+        {
+          id: 'rep-3',
+          title: 'Weekly desk tidy & planning',
+          freqType: 'weekly',
+          intervalDays: 1,
+          weekdays: [0, 3],
+          monthlyDay: 1,
+          enabled: true,
+          lastSpawnedDate: twoDaysAgo,
+          createdAt: fourDaysAgo
+        }
+      ];
+
+      state.tasks = [
+        {
+          id: 'task-1',
+          text: 'Drink a glass of water & stretch',
+          completed: false,
+          createdAt: today,
+          repeatRuleId: 'rep-1'
+        },
+        {
+          id: 'task-2',
+          text: 'Pick up fresh coffee beans',
+          completed: false,
+          createdAt: yesterday,
+          repeatRuleId: null
+        },
+        {
+          id: 'task-3',
+          text: 'Reply to Sarah about Saturday dinner',
+          completed: false,
+          createdAt: today,
+          repeatRuleId: null
+        },
+        {
+          id: 'task-4',
+          text: 'Morning walk around the park',
+          completed: true,
+          createdAt: today,
+          repeatRuleId: null
+        }
+      ];
+
+      state.journalEntries = {
+        [today]: [
+          {
+            id: 'j-101',
+            time: '9:15 AM',
+            tag: 'Thought',
+            text: 'Quiet morning with crisp air. Writing down three priorities before checking messages keeps the day calm.'
+          }
+        ],
+        [yesterday]: [
+          {
+            id: 'j-102',
+            time: '11:40 AM',
+            tag: '',
+            text: 'Tried the new corner bakery—the rosemary focaccia was wonderful. Remember to bring a book next time.'
+          },
+          {
+            id: 'j-103',
+            time: '8:20 PM',
+            tag: 'Grateful',
+            text: 'Long evening phone call catching up with family. Feeling grounded.'
+          }
+        ],
+        [twoDaysAgo]: [
+          {
+            id: 'j-104',
+            time: '4:05 PM',
+            tag: 'Win',
+            text: 'Finished organizing the bookshelf and cleared out two boxes of old notebooks.'
+          }
+        ]
+      };
+
+      saveState();
+      closeBackupModal();
+      processRepeatingTasks();
+      renderAll();
+      if (showNotification) showToast('Sample data loaded');
+    }
+
+    function clearAllData() {
+      state.tasks = [];
+      state.repeatingRules = [];
+      state.journalEntries = {};
+      saveState();
+      closeBackupModal();
+      renderAll();
+      showToast('All data cleared');
+    }
+
+    /**
+     * Repeating Task Engine
+     */
+    function isRuleDueOnDate(rule, dateKey) {
+      const dt = parseDateKey(dateKey);
+      if (rule.freqType === 'daily') return true;
+      if (rule.freqType === 'interval') {
+        const anchor = rule.lastSpawnedDate || rule.createdAt || dateKey;
+        return daysBetweenKeys(anchor, dateKey) >= (rule.intervalDays || 1);
+      }
+      if (rule.freqType === 'weekly') {
+        const dow = dt.getDay();
+        return Array.isArray(rule.weekdays) && rule.weekdays.includes(dow);
+      }
+      if (rule.freqType === 'monthly') {
+        const dom = dt.getDate();
+        const targetDay = Number(rule.monthlyDay) || 1;
+        const lastDayOfMonth = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+        return dom === Math.min(targetDay, lastDayOfMonth);
+      }
+      return false;
+    }
+
+    function getNextDueDescription(rule) {
+      if (!rule.enabled) return 'Paused';
+      const todayKey = getTodayKey();
+
+      for (let offset = 1; offset <= 60; offset++) {
+        const candidateKey = addDaysToKey(todayKey, offset);
+        if (rule.freqType === 'interval') {
+          const anchor = rule.lastSpawnedDate || todayKey;
+          if (daysBetweenKeys(anchor, candidateKey) >= rule.intervalDays) {
+            return offset === 1 ? 'Tomorrow' : formatFriendlyDate(candidateKey);
+          }
+        } else if (isRuleDueOnDate(rule, candidateKey)) {
+          return offset === 1 ? 'Tomorrow' : formatFriendlyDate(candidateKey);
+        }
+      }
+      return 'Scheduled';
+    }
+
+    function formatRuleScheduleLabel(rule) {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      if (rule.freqType === 'daily') return 'Every day';
+      if (rule.freqType === 'interval') return `Every ${rule.intervalDays} days`;
+      if (rule.freqType === 'weekly') {
+        if (!rule.weekdays || rule.weekdays.length === 0) return 'Weekly';
+        return 'Weekly · ' + rule.weekdays.map(d => dayNames[d]).join(', ');
+      }
+      if (rule.freqType === 'monthly') {
+        const d = rule.monthlyDay;
+        const suffix = (d % 10 === 1 && d !== 11) ? 'st' : (d % 10 === 2 && d !== 12) ? 'nd' : (d % 10 === 3 && d !== 13) ? 'rd' : 'th';
+        return `Monthly · ${d}${suffix}`;
+      }
+      return 'Recurring';
+    }
+
+    function processRepeatingTasks() {
+      const todayKey = getTodayKey();
+      let spawnedCount = 0;
+
+      state.repeatingRules.forEach(rule => {
+        if (!rule.enabled) return;
+        if (rule.lastSpawnedDate === todayKey) return;
+
+        const startCheck = rule.lastSpawnedDate ? addDaysToKey(rule.lastSpawnedDate, 1) : todayKey;
+        const span = Math.min(30, Math.max(0, daysBetweenKeys(startCheck, todayKey)));
+
+        let shouldSpawn = false;
+        for (let i = 0; i <= span; i++) {
+          const checkKey = addDaysToKey(startCheck, i);
+          if (isRuleDueOnDate(rule, checkKey)) {
+            shouldSpawn = true;
+            break;
+          }
+        }
+
+        if (shouldSpawn) {
+          const alreadyActive = state.tasks.some(t => t.repeatRuleId === rule.id && !t.completed);
+          if (!alreadyActive) {
+            state.tasks.unshift({
+              id: 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+              text: rule.title,
+              completed: false,
+              createdAt: todayKey,
+              repeatRuleId: rule.id
+            });
+            spawnedCount++;
+          }
+          rule.lastSpawnedDate = todayKey;
+        }
+      });
+
+      if (spawnedCount > 0) {
+        saveState();
+        showToast(`${spawnedCount} repeating task${spawnedCount > 1 ? 's' : ''} added`);
+      }
+    }
+
+    /**
+     * Tab Switching Logic
+     */
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+      const views = ['tasks', 'repeating', 'journal'];
+
+      views.forEach(v => {
+        const section = document.getElementById(`view-${v}`);
+        const btn = document.getElementById(`nav-btn-${v}`);
+        if (v === tabName) {
+          section.classList.remove('hidden');
+          section.classList.add('flex');
+          btn.classList.remove('text-neutral-400');
+          btn.classList.add('text-coral-500');
+        } else {
+          section.classList.add('hidden');
+          section.classList.remove('flex');
+          btn.classList.add('text-neutral-400');
+          btn.classList.remove('text-coral-500');
+        }
+      });
+
+      if (tabName === 'journal') {
+        renderJournalView();
+      }
+    }
+
+    /**
+     * VIEW 1: Tasks Rendering & Actions
+     */
+    function renderTasksView() {
+      const today = new Date();
+      document.getElementById('tasks-date-label').textContent = today.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      const activeTasks = state.tasks.filter(t => !t.completed);
+      const completedTasks = state.tasks.filter(t => t.completed);
+
+      const total = state.tasks.length;
+      const doneCount = completedTasks.length;
+      const pct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
+
+      document.getElementById('progress-summary-text').textContent = `${doneCount} of ${total} completed`;
+      document.getElementById('progress-percent-text').textContent = `${pct}%`;
+      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+
+      document.getElementById('active-count').textContent = activeTasks.length;
+      document.getElementById('completed-count').textContent = completedTasks.length;
+
+      const navBadge = document.getElementById('nav-tasks-badge');
+      if (activeTasks.length > 0) {
+        navBadge.textContent = activeTasks.length;
+        navBadge.classList.remove('hidden');
+      } else {
+        navBadge.classList.add('hidden');
+      }
+
+      // Render Active List
+      const activeListEl = document.getElementById('active-tasks-list');
+      const emptyEl = document.getElementById('active-tasks-empty');
+
+      if (activeTasks.length === 0) {
+        activeListEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+        activeListEl.innerHTML = activeTasks.map(task => createTaskItemHTML(task)).join('');
+      }
+
+      // Render Completed List
+      const completedSection = document.getElementById('completed-section');
+      const completedListEl = document.getElementById('completed-tasks-list');
+      const chevron = document.getElementById('completed-chevron');
+
+      if (completedTasks.length === 0) {
+        completedSection.classList.add('hidden');
+        completedListEl.innerHTML = '';
+      } else {
+        completedSection.classList.remove('hidden');
+        chevron.style.transform = state.completedCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        completedListEl.classList.toggle('hidden', state.completedCollapsed);
+        completedListEl.innerHTML = completedTasks.map(task => createTaskItemHTML(task)).join('');
+      }
+    }
+
+    function createTaskItemHTML(task) {
+      const isCarriedOver = !task.completed && task.createdAt && task.createdAt < getTodayKey();
+      const isRepeating = Boolean(task.repeatRuleId);
+
+      return `
+        <li class="group flex items-center gap-3.5 bg-white px-3.5 py-3 rounded-2xl border ${task.completed ? 'border-neutral-100 bg-neutral-25' : 'border-neutral-200/90 hover:border-coral-200'} transition">
+          <button
+            type="button"
+            onclick="toggleTask('${task.id}')"
+            aria-label="${task.completed ? 'Mark incomplete' : 'Complete task'}"
+            class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition animate-check ${
+              task.completed
+                ? 'bg-coral-500 text-white border border-coral-500'
+                : 'border-[1.75px] border-neutral-300 hover:border-coral-500 bg-white'
+            }"
+          >
+            ${task.completed ? `
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            ` : ''}
+          </button>
+
+          <div class="flex-1 min-w-0" onclick="toggleTask('${task.id}')">
+            <p class="text-sm leading-snug break-words cursor-pointer ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-900 font-medium'}">
+              ${escapeHTML(task.text)}
+            </p>
+            ${(isRepeating || isCarriedOver) ? `
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                ${isRepeating ? `
+                  <span class="inline-flex items-center gap-1 text-[10px] font-medium text-coral-500">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    Repeating
+                  </span>
+                ` : ''}
+                ${isCarriedOver ? `
+                  <span class="text-[10px] text-neutral-400">
+                    From ${formatFriendlyDate(task.createdAt)}
+                  </span>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <button
+            type="button"
+            onclick="deleteTask('${task.id}')"
+            aria-label="Delete task"
+            class="p-1.5 rounded-lg text-neutral-300 hover:text-coral-500 hover:bg-coral-50 active:scale-90 transition shrink-0"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </li>
+      `;
+    }
+
+    function toggleCompletedCollapse() {
+      state.completedCollapsed = !state.completedCollapsed;
+      renderTasksView();
+    }
+
+    function toggleTask(taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+      task.completed = !task.completed;
+      saveState();
+      renderTasksView();
+    }
+
+    function deleteTask(taskId) {
+      state.tasks = state.tasks.filter(t => t.id !== taskId);
+      saveState();
+      renderTasksView();
+    }
+
+    function clearCompletedTasks() {
+      state.tasks = state.tasks.filter(t => !t.completed);
+      saveState();
+      renderTasksView();
+      showToast('Completed cleared');
+    }
+
+    /**
+     * VIEW 2: Repeating Rules Rendering & Actions
+     */
+    function toggleRepeatCreator(show) {
+      const card = document.getElementById('repeat-creator-card');
+      if (show) {
+        card.classList.remove('hidden');
+        document.getElementById('repeat-title-input').focus();
+      } else {
+        card.classList.add('hidden');
+      }
+    }
+
+    function renderRepeatingView() {
+      const listEl = document.getElementById('repeating-rules-list');
+      const emptyEl = document.getElementById('repeating-empty');
+
+      if (state.repeatingRules.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.innerHTML = state.repeatingRules.map(rule => {
+        const scheduleLabel = formatRuleScheduleLabel(rule);
+        const nextDue = getNextDueDescription(rule);
+
+        return `
+          <li class="bg-white rounded-2xl p-4 border ${rule.enabled ? 'border-neutral-200/90' : 'border-neutral-100 opacity-60'} transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-semibold text-neutral-900 break-words">${escapeHTML(rule.title)}</h3>
+                <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                  <span class="text-xs font-medium text-coral-600 bg-coral-50 px-2 py-0.5 rounded-md">
+                    ${scheduleLabel}
+                  </span>
+                  <span class="text-[11px] text-neutral-400">
+                    Next: <span class="text-neutral-600 font-medium">${nextDue}</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Minimalist Coral Toggle Switch -->
+              <button
+                type="button"
+                onclick="toggleRepeatRule('${rule.id}')"
+                aria-label="Toggle repeating task"
+                class="w-10 h-5 rounded-full p-0.5 transition-colors shrink-0 ${rule.enabled ? 'bg-coral-500' : 'bg-neutral-200'}"
+              >
+                <div class="w-4 h-4 rounded-full bg-white transform transition-transform ${rule.enabled ? 'translate-x-5' : 'translate-x-0'}"></div>
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-neutral-100">
+              <button
+                type="button"
+                onclick="triggerRepeatRuleNow('${rule.id}')"
+                class="text-xs font-medium text-coral-500 hover:text-coral-600 py-1 px-1.5 -ml-1.5 rounded-lg active:bg-coral-50 transition"
+              >
+                + Add now
+              </button>
+
+              <button
+                type="button"
+                onclick="deleteRepeatRule('${rule.id}')"
+                class="text-xs text-neutral-400 hover:text-coral-500 py-1 px-1.5 -mr-1.5 rounded-lg transition"
+              >
+                Delete
+              </button>
+            </div>
+          </li>
+        `;
+      }).join('');
+    }
+
+    function toggleRepeatRule(ruleId) {
+      const rule = state.repeatingRules.find(r => r.id === ruleId);
+      if (!rule) return;
+      rule.enabled = !rule.enabled;
+      saveState();
+      renderRepeatingView();
+    }
+
+    function triggerRepeatRuleNow(ruleId) {
+      const rule = state.repeatingRules.find(r => r.id === ruleId);
+      if (!rule) return;
+
+      const alreadyActive = state.tasks.some(t => t.repeatRuleId === rule.id && !t.completed);
+      if (alreadyActive) {
+        showToast('Already in your Tasks');
+        return;
+      }
+
+      state.tasks.unshift({
+        id: 'task-' + Date.now(),
+        text: rule.title,
+        completed: false,
+        createdAt: getTodayKey(),
+        repeatRuleId: rule.id
+      });
+      rule.lastSpawnedDate = getTodayKey();
+      saveState();
+      renderTasksView();
+      showToast('Added to Tasks');
+    }
+
+    function deleteRepeatRule(ruleId) {
+      state.repeatingRules = state.repeatingRules.filter(r => r.id !== ruleId);
+      saveState();
+      renderRepeatingView();
+      showToast('Deleted');
+    }
+
+    /**
+     * VIEW 3: Daily Journal / Notepad Rendering & Navigation
+     * Notes start with the time written followed by a dash (e.g., "2:45 PM — ").
+     */
+    function formatNoteTime(dateObj = new Date()) {
+      return dateObj.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function selectJournalDate(dateKey) {
+      const todayKey = getTodayKey();
+      if (dateKey > todayKey) dateKey = todayKey;
+      state.selectedJournalDate = dateKey;
+      renderJournalView();
+    }
+
+    function shiftJournalDate(delta) {
+      const nextKey = addDaysToKey(state.selectedJournalDate, delta);
+      selectJournalDate(nextKey);
+    }
+
+    function renderJournalView() {
+      const dateKey = state.selectedJournalDate || getTodayKey();
+      const todayKey = getTodayKey();
+      const dt = parseDateKey(dateKey);
+
+      const isToday = dateKey === todayKey;
+      const isYesterday = dateKey === addDaysToKey(todayKey, -1);
+
+      const formattedMain = dt.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      document.getElementById('journal-selected-date-title').textContent = isToday
+        ? `Today · ${formattedMain}`
+        : isYesterday
+          ? `Yesterday · ${formattedMain}`
+          : formattedMain;
+
+      document.getElementById('journal-selected-date-sub').textContent = dt.getFullYear();
+
+      document.getElementById('journal-next-day-btn').disabled = isToday;
+      document.getElementById('journal-today-btn').classList.toggle('hidden', isToday);
+
+      renderJournalDateStrip();
+
+      const entries = state.journalEntries[dateKey] || [];
+      document.getElementById('journal-entry-count-badge').textContent =
+        `${entries.length} ${entries.length === 1 ? 'note' : 'notes'}`;
+
+      document.getElementById('sheet-handwritten-header').textContent = isToday
+        ? "Today's Page"
+        : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+      document.getElementById('sheet-status-label').textContent = isToday ? 'Saved locally' : 'Past page';
+
+      const containerEl = document.getElementById('journal-entries-container');
+      const emptyPageEl = document.getElementById('journal-empty-page');
+
+      if (entries.length === 0) {
+        containerEl.innerHTML = '';
+        emptyPageEl.classList.remove('hidden');
+      } else {
+        emptyPageEl.classList.add('hidden');
+        containerEl.innerHTML = entries.map(entry => {
+          const entryTime = entry.time || '';
+          const timePrefix = entryTime
+            ? `<span class="font-sans text-[11px] font-medium text-neutral-400 select-none">${escapeHTML(entryTime)}</span><span class="text-coral-500 font-semibold select-none mx-1.5">—</span>`
+            : `<span class="text-coral-500 font-semibold select-none mr-1.5">—</span>`;
+
+          return `
+            <article class="group flex items-start justify-between gap-2 py-0.5">
+              <p class="font-serif text-[15px] text-neutral-900 leading-[32px] break-words whitespace-pre-wrap flex-1">${timePrefix}${entry.tag ? `<span class="font-sans text-[10px] font-semibold uppercase tracking-wider text-coral-600 bg-coral-50 px-1.5 py-0.5 rounded mr-1.5 align-middle">${escapeHTML(entry.tag)}</span>` : ''}${escapeHTML(entry.text)}</p>
+              <button
+                type="button"
+                onclick="deleteJournalEntry('${dateKey}', '${entry.id}')"
+                aria-label="Delete journal note"
+                class="text-neutral-300 hover:text-coral-500 p-1.5 mt-1 rounded-lg transition shrink-0"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </article>
+          `;
+        }).join('');
+      }
+    }
+
+    function renderJournalDateStrip() {
+      const stripEl = document.getElementById('journal-date-strip');
+      const todayKey = getTodayKey();
+      const daysToShow = 14;
+      const pills = [];
+
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const key = addDaysToKey(todayKey, -i);
+        const dt = parseDateKey(key);
+        const dayLetter = dt.toLocaleDateString('en-US', { weekday: 'narrow' });
+        const dayNum = dt.getDate();
+        const isSelected = key === state.selectedJournalDate;
+        const hasNotes = (state.journalEntries[key] && state.journalEntries[key].length > 0);
+
+        pills.push(`
+          <button
+            type="button"
+            onclick="selectJournalDate('${key}')"
+            class="flex flex-col items-center justify-center min-w-[38px] py-1.5 px-1 rounded-xl border transition shrink-0 ${
+              isSelected
+                ? 'bg-coral-500 text-white border-coral-500'
+                : 'bg-white text-neutral-700 border-neutral-200/80 hover:border-coral-300'
+            }"
+          >
+            <span class="text-[10px] font-medium ${isSelected ? 'text-coral-100' : 'text-neutral-400'}">${dayLetter}</span>
+            <span class="text-xs font-semibold mt-0.5">${dayNum}</span>
+            <span class="w-1 h-1 rounded-full mt-1 ${
+              hasNotes
+                ? (isSelected ? 'bg-white' : 'bg-coral-500')
+                : 'bg-transparent'
+            }"></span>
+          </button>
+        `);
+      }
+
+      stripEl.innerHTML = pills.join('');
+      const activeBtn = stripEl.querySelector('.bg-coral-500');
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+
+    function deleteJournalEntry(dateKey, entryId) {
+      if (!state.journalEntries[dateKey]) return;
+      state.journalEntries[dateKey] = state.journalEntries[dateKey].filter(e => e.id !== entryId);
+      if (state.journalEntries[dateKey].length === 0) {
+        delete state.journalEntries[dateKey];
+      }
+      saveState();
+      renderJournalView();
+    }
+
+    /**
+     * Journal Archive Drawer
+     */
+    function toggleHistoryDrawer(open) {
+      const backdrop = document.getElementById('history-drawer-backdrop');
+      if (!open) {
+        backdrop.classList.add('hidden');
+        return;
+      }
+
+      document.getElementById('jump-date-picker').max = getTodayKey();
+      document.getElementById('jump-date-picker').value = state.selectedJournalDate;
+
+      const archiveList = document.getElementById('archive-days-list');
+      const sortedDates = Object.keys(state.journalEntries)
+        .filter(k => state.journalEntries[k] && state.journalEntries[k].length > 0)
+        .sort((a, b) => b.localeCompare(a));
+
+      if (sortedDates.length === 0) {
+        archiveList.innerHTML = `
+          <div class="text-center py-10">
+            <p class="font-serif italic text-sm text-neutral-400">No saved journal pages yet.</p>
+          </div>
+        `;
+      } else {
+        archiveList.innerHTML = sortedDates.map(dateKey => {
+          const entries = state.journalEntries[dateKey];
+          const dt = parseDateKey(dateKey);
+          const dateTitle = dt.toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          });
+          const previewText = entries[0].text;
+
+          return `
+            <button
+              type="button"
+              onclick="selectJournalDate('${dateKey}'); toggleHistoryDrawer(false);"
+              class="w-full text-left bg-white hover:bg-coral-50/40 p-3.5 rounded-2xl border border-neutral-200/90 hover:border-coral-300 transition flex items-start justify-between gap-3"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-sm text-neutral-900">${dateTitle}</span>
+                  ${dateKey === getTodayKey() ? '<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-coral-50 text-coral-600">Today</span>' : ''}
+                </div>
+                <p class="font-serif text-xs text-neutral-500 line-clamp-2 mt-1"><span class="text-coral-500 mr-1">—</span>${escapeHTML(previewText)}</p>
+              </div>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-600 shrink-0">
+                ${entries.length}
+              </span>
+            </button>
+          `;
+        }).join('');
+      }
+
+      backdrop.classList.remove('hidden');
+    }
+
+    function jumpToDateFromPicker(val) {
+      if (!val) return;
+      selectJournalDate(val);
+      toggleHistoryDrawer(false);
+    }
+
+    /**
+     * Backup Modal & Toast Feedback
+     */
+    function openBackupModal() {
+      updateBackupStatusLabel();
+      state.pendingImportData = null;
+      const feedbackEl = document.getElementById('backup-import-feedback');
+      if (feedbackEl) {
+        feedbackEl.textContent = 'Supports Daybook JSON backups';
+        feedbackEl.className = 'text-[11px] text-neutral-400 mt-1';
+      }
+      document.getElementById('import-preview-box').classList.add('hidden');
+      document.getElementById('backup-file-input').value = '';
+      document.getElementById('backup-modal-backdrop').classList.remove('hidden');
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backup-modal-backdrop').classList.add('hidden');
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const banner = document.getElementById('toast-banner');
+      document.getElementById('toast-text').textContent = message;
+      banner.classList.remove('opacity-0', '-translate-y-2');
+      banner.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        banner.classList.add('opacity-0', '-translate-y-2');
+        banner.classList.remove('opacity-100', 'translate-y-0');
+      }, 2200);
+    }
+
+    function escapeHTML(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderAll() {
+      renderTasksView();
+      renderRepeatingView();
+      renderJournalView();
+      checkBackupReminder();
+    }
+
+    /**
+     * Event Listeners Setup
+     */
+    function bindEvents() {
+      // 1. Add Regular Task
+      document.getElementById('add-task-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('new-task-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        state.tasks.unshift({
+          id: 'task-' + Date.now(),
+          text,
+          completed: false,
+          createdAt: getTodayKey(),
+          repeatRuleId: null
+        });
+
+        input.value = '';
+        saveState();
+        renderTasksView();
+      });
+
+      // 2. Repeating Frequency Selector Buttons
+      document.querySelectorAll('.freq-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.selectedFreqType = btn.dataset.freq;
+          updateFreqButtonsUI();
+        });
+      });
+
+      // Weekday Pills Toggle
+      document.querySelectorAll('.day-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const day = Number(pill.dataset.day);
+          if (state.selectedWeekdays.includes(day)) {
+            if (state.selectedWeekdays.length > 1) {
+              state.selectedWeekdays = state.selectedWeekdays.filter(d => d !== day);
+            }
+          } else {
+            state.selectedWeekdays.push(day);
+            state.selectedWeekdays.sort((a, b) => a - b);
+          }
+          updateWeekdayPillsUI();
+        });
+      });
+
+      // Add Repeating Task Form Submit
+      document.getElementById('add-repeat-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const titleInput = document.getElementById('repeat-title-input');
+        const title = titleInput.value.trim();
+        if (!title) return;
+
+        const intervalDays = Math.max(2, Number(document.getElementById('repeat-interval-days').value) || 3);
+        const monthlyDay = Math.min(31, Math.max(1, Number(document.getElementById('repeat-monthly-day').value) || 1));
+        const startToday = document.getElementById('repeat-start-today').checked;
+        const todayKey = getTodayKey();
+
+        const newRule = {
+          id: 'rep-' + Date.now(),
+          title,
+          freqType: state.selectedFreqType,
+          intervalDays,
+          weekdays: [...state.selectedWeekdays],
+          monthlyDay,
+          enabled: true,
+          lastSpawnedDate: startToday ? todayKey : null,
+          createdAt: todayKey
+        };
+
+        state.repeatingRules.unshift(newRule);
+
+        if (startToday) {
+          state.tasks.unshift({
+            id: 'task-' + Date.now() + '-init',
+            text: title,
+            completed: false,
+            createdAt: todayKey,
+            repeatRuleId: newRule.id
+          });
+        }
+
+        titleInput.value = '';
+        toggleRepeatCreator(false);
+        saveState();
+        renderAll();
+        showToast('Schedule saved');
+      });
+
+      // 3. Journal Tag Selector
+      document.querySelectorAll('.mood-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.selectedJournalTag = btn.dataset.tag;
+          document.querySelectorAll('.mood-btn').forEach(b => {
+            b.classList.remove('bg-coral-50', 'text-coral-600', 'font-medium');
+            b.classList.add('text-neutral-500');
+          });
+          btn.classList.add('bg-coral-50', 'text-coral-600', 'font-medium');
+          btn.classList.remove('text-neutral-500');
+        });
+      });
+
+      // Add Journal Note Form Submit
+      document.getElementById('add-journal-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const textarea = document.getElementById('journal-note-input');
+        const text = textarea.value.trim();
+        if (!text) return;
+
+        const dateKey = state.selectedJournalDate || getTodayKey();
+        if (!state.journalEntries[dateKey]) {
+          state.journalEntries[dateKey] = [];
+        }
+
+        state.journalEntries[dateKey].push({
+          id: 'j-' + Date.now(),
+          time: formatNoteTime(new Date()),
+          tag: state.selectedJournalTag,
+          text
+        });
+
+        textarea.value = '';
+        saveState();
+        renderJournalView();
+      });
+
+      // Close modals on backdrop click
+      document.getElementById('history-drawer-backdrop').addEventListener('click', e => {
+        if (e.target.id === 'history-drawer-backdrop') toggleHistoryDrawer(false);
+      });
+      document.getElementById('backup-modal-backdrop').addEventListener('click', e => {
+        if (e.target.id === 'backup-modal-backdrop') closeBackupModal();
+      });
+
+      // Drag-and-drop support for JSON backup import
+      const dropzone = document.getElementById('backup-dropzone');
+      if (dropzone) {
+        ['dragenter', 'dragover'].forEach(evtName => {
+          dropzone.addEventListener(evtName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('border-coral-500', 'bg-coral-50/50');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(evtName => {
+          dropzone.addEventListener(evtName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-coral-500', 'bg-coral-50/50');
+          });
+        });
+
+        dropzone.addEventListener('drop', e => {
+          const dtFiles = e.dataTransfer && e.dataTransfer.files;
+          if (dtFiles && dtFiles.length > 0) {
+            processBackupFile(dtFiles[0]);
+          }
+        });
+      }
+    }
+
+    function updateFreqButtonsUI() {
+      document.querySelectorAll('.freq-btn').forEach(btn => {
+        const active = btn.dataset.freq === state.selectedFreqType;
+        btn.className = `freq-btn py-2 px-3 rounded-xl text-xs font-medium border text-center transition ${
+          active
+            ? 'bg-coral-500 text-white border-coral-500'
+            : 'bg-white text-neutral-700 border-neutral-200 hover:border-coral-300'
+        }`;
+      });
+
+      document.getElementById('opt-interval').classList.toggle('hidden', state.selectedFreqType !== 'interval');
+      document.getElementById('opt-weekly').classList.toggle('hidden', state.selectedFreqType !== 'weekly');
+      document.getElementById('opt-monthly').classList.toggle('hidden', state.selectedFreqType !== 'monthly');
+    }
+
+    function updateWeekdayPillsUI() {
+      document.querySelectorAll('.day-pill').forEach(pill => {
+        const day = Number(pill.dataset.day);
+        const active = state.selectedWeekdays.includes(day);
+        pill.className = `day-pill py-1.5 rounded-lg text-xs font-semibold border transition ${
+          active
+            ? 'border-coral-500 bg-coral-500 text-white'
+            : 'border-neutral-200 bg-white text-neutral-600'
+        }`;
+      });
+    }
+
+    /**
+     * Initialize App on Load
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      state.selectedJournalDate = getTodayKey();
+      loadState();
+      processRepeatingTasks();
+      bindEvents();
+      updateFreqButtonsUI();
+      updateWeekdayPillsUI();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
